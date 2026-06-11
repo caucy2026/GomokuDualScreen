@@ -466,6 +466,30 @@ handler.postDelayed({
 | `SoundFX.kt` | 音效播放（线程安全） |
 | `GameState.kt` | 全局状态单例 |
 
+## Git 提交记录
+
+| 日期 | 提交 | 说明 |
+|------|------|------|
+| 2026-06-11 | `fdf31a8` | **Initial commit: GomokuDualScreen V4.4** — 57 文件, 2973 行 |
+
+### 首次推送过程
+
+```powershell
+# 1. 生成 ED25519 SSH 密钥（GitHub 已禁用密码登录）
+ssh-keygen -t ed25519 -C "caucy.niu@newlink-sz.com" -f "$HOME\.ssh\id_ed25519" -N """"
+
+# 2. 复制公钥 → https://github.com/settings/ssh/new → Add SSH Key
+
+# 3. 初始化并推送
+git init
+git remote add origin git@github.com:caucy2026/GomokuDualScreen.git
+git add -A
+git commit -m "Initial commit: GomokuDualScreen V4.4 - 双屏五子棋 Android 应用"
+git push -u origin master
+```
+
+**仓库地址**：https://github.com/caucy2026/GomokuDualScreen
+
 ---
 
 > 📅 最后更新：2026-06-11 | 当前版本：**V4.4** | 总构建次数：~50

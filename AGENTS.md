@@ -23,6 +23,22 @@ adb install -r D:\work\ai_code\GomokuDualScreen\app\build\outputs\apk\release\ap
 | Gradle | 8.5 / Kotlin 1.9.20 / compileSdk 34 / minSdk 31 |
 | Python | `D:/Python312/python.exe` |
 | Keystore | `D:\qianming\debug.keystore` (alias=`androiddebugkey`, pwd=`880203`) |
+| GitHub | `git@github.com:caucy2026/GomokuDualScreen.git` |
+
+## Git 仓库
+
+```powershell
+# 首次推送（SSH 方式）
+ssh-keygen -t ed25519 -C "your@email.com" -f "$HOME\.ssh\id_ed25519" -N """"
+# 将 $HOME\.ssh\id_ed25519.pub 内容添加到 https://github.com/settings/ssh/new
+git init
+git remote add origin git@github.com:caucy2026/GomokuDualScreen.git
+git add -A
+git commit -m "Initial commit: GomokuDualScreen V4.4"
+git push -u origin master
+```
+
+**注意**：GitHub 已禁用密码登录，必须使用 SSH Key 或 Personal Access Token。
 
 ---
 
