@@ -37,6 +37,8 @@ class GamePresentation : Activity() {
     var onStartOrRestart: (() -> Unit)? = null
     var onUndoRequest: (() -> Unit)? = null
     var getMainActivity: (() -> MainActivity)? = null
+    var onAutoToggle: (() -> Unit)? = null
+    private var autoBtn: Button? = null
     private var startBtn: Button? = null
     private var pauseBtnWhite: Button? = null
     private var tauntCountView: TextView? = null
@@ -57,6 +59,7 @@ class GamePresentation : Activity() {
         gomokuView = GomokuView(this).apply {
             this.playerPerspective = this@GamePresentation.playerPerspective
             this.game = this@GamePresentation.game
+            this.showPieceOrder = getSharedPreferences("gomoku_settings", Context.MODE_PRIVATE).getBoolean("piece_order", false)
             onConfirmPlace = { row, col -> this@GamePresentation.onPiecePlaced?.invoke(row, col) }
         }
 
@@ -65,6 +68,12 @@ class GamePresentation : Activity() {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
             setPadding(12, 12, 4, 12)
         }
+        // 自动对战按钮
+        val autoBtnRef = create3DButton("\uD83E\uDD16\n\u81EA\u52A8", "#546E7A", "#263238", smallSize)
+        autoBtn = autoBtnRef
+        autoBtnRef.setOnClickListener { onAutoToggle?.invoke() }
+        leftPanel.addView(autoBtnRef, LinearLayout.LayoutParams(smallSize, smallSize).apply { bottomMargin = 12 })
+
         val logoImg = ImageView(this).apply {
             setImageResource(R.drawable.kemi_logo)
             scaleType = ImageView.ScaleType.FIT_CENTER
@@ -143,7 +152,7 @@ class GamePresentation : Activity() {
         undoBtn.setOnClickListener { onUndoRequest?.invoke() }
         panel.addView(startBtn, LinearLayout.LayoutParams(btnSize, btnSize).apply { bottomMargin = btnMargin; rightMargin = btnMargin2 })
         panel.addView(undoBtn, LinearLayout.LayoutParams(btnSize, btnSize).apply { bottomMargin = 8; rightMargin = btnMargin2 })
-        panel.addView(TextView(this).apply { text = "V4.4"; textSize = 10f; setTextColor(Color.parseColor("#998B7355")); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        panel.addView(TextView(this).apply { text = "V4.5"; textSize = 10f; setTextColor(Color.parseColor("#998B7355")); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         val settingsBtn = TextView(this).apply { text = "\u2261"; textSize = 22f; setTextColor(Color.parseColor("#998B7355")); gravity = Gravity.CENTER; setPadding(12, 0, 12, 4); setOnClickListener { showSettingsDialog() } }
         panel.addView(settingsBtn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -219,6 +228,28 @@ class GamePresentation : Activity() {
     private fun makeDialogBtn(text: String, color: String, onClick: () -> Unit): Button = Button(this).apply { this.text = text; setTextColor(Color.WHITE); textSize = 16f; background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = 20f; setColor(Color.parseColor(color)) }; setPadding(24, 14, 24, 14); setOnClickListener { onClick() } }
 
     fun showExitRequestDialog(callback: (Boolean) -> Unit) { val container = findViewById<FrameLayout>(android.R.id.content) ?: return; val overlay = FrameLayout(this).apply { setBackgroundColor(Color.parseColor("#80000000")); setOnClickListener { } }; val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(40, 30, 40, 30); background = GradientDrawable().apply { shape = GradientDrawable.RECTANGLE; cornerRadius = 24f; setColor(Color.WHITE); setStroke(3, Color.parseColor("#C62828")) } }; card.addView(TextView(this).apply { text = "\u9000\u51FA\u6E38\u620F\u8BF7\u6C42"; textSize = 20f; setTextColor(Color.parseColor("#C62828")); gravity = Gravity.CENTER; setPadding(0, 0, 0, 16) }); card.addView(TextView(this).apply { text = "\u9ED1\u65B9\u8BF7\u6C42\u9000\u51FA\u6E38\u620F\uFF0C\u662F\u5426\u540C\u610F\uFF1F"; textSize = 16f; setTextColor(Color.DKGRAY); gravity = Gravity.CENTER; setPadding(0, 0, 0, 24) }); val btnRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }; btnRow.addView(makeDialogBtn("\u540C\u610F", "#4CAF50") { container.removeView(overlay); callback(true) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { rightMargin = 16 }); btnRow.addView(makeDialogBtn("\u4E0D\u540C\u610F", "#F44336") { container.removeView(overlay); callback(false) }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)); card.addView(btnRow); overlay.addView(card, FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.CENTER }); container.addView(overlay, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)) }
+
+    fun updateAutoButton(isAuto: Boolean) {
+        autoBtn?.let { b ->
+            if (isAuto) {
+                b.text = "\uD83E\uDD16\n\u505C\u6B62"
+                b.background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL; setSize(b.width, b.height)
+                    colors = intArrayOf(Color.parseColor("#4CAF50"), Color.parseColor("#2E7D32"))
+                    orientation = GradientDrawable.Orientation.TOP_BOTTOM
+                    setStroke(3, Color.parseColor("#CCFFFFFF"))
+                }
+            } else {
+                b.text = "\uD83E\uDD16\n\u81EA\u52A8"
+                b.background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL; setSize(b.width, b.height)
+                    colors = intArrayOf(Color.parseColor("#546E7A"), Color.parseColor("#263238"))
+                    orientation = GradientDrawable.Orientation.TOP_BOTTOM
+                    setStroke(3, Color.parseColor("#CCFFFFFF"))
+                }
+            }
+        }
+    }
 
     fun shakeScreen() { val v = gomokuView ?: return; android.animation.ValueAnimator.ofFloat(0f, 16f, -16f, 12f, -12f, 10f, -10f, 8f, -8f, 5f, -5f, 3f, -3f, 0f).apply { duration = 2000; addUpdateListener { v.translationX = it.animatedValue as Float }; start() } }
 

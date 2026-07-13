@@ -40,6 +40,7 @@ class MainActivity : AppCompatActivity() {
     private var pauseBtnBlack: Button? = null
     private var animator: ValueAnimator? = null
     private var myPlayer = GomokuGame.PLAYER_BLACK
+    private var isAutoMode = false
     private lateinit var prefs: SharedPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -206,7 +207,7 @@ class MainActivity : AppCompatActivity() {
         val exitBtn = create3DButton("\uD83D\uDEAA\n\u9000\u51FA", "#C62828", "#8E0000", btnSize)
         exitBtn.setOnClickListener { if (game.isPaused && game.pausedByPlayer != myPlayer) { showMsgToPlayer(myPlayer, "\u6E38\u620F\u6682\u505C\u4E2D\uFF0C\u8BF7\u7B49\u5F85\u5BF9\u65B9\u6062\u590D"); return@setOnClickListener }; requestExit() }
         panel.addView(exitBtn, LinearLayout.LayoutParams(btnSize, btnSize).apply { bottomMargin = 12; rightMargin = btnMargin2 })
-        val verText = TextView(this).apply { text = "V4.4"; textSize = 10f; setTextColor(Color.parseColor("#998B7355")); gravity = Gravity.CENTER }
+        val verText = TextView(this).apply { text = "V4.5"; textSize = 10f; setTextColor(Color.parseColor("#998B7355")); gravity = Gravity.CENTER }
         panel.addView(verText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         val settingsBtn = TextView(this).apply { text = "\u2261"; textSize = 22f; setTextColor(Color.parseColor("#998B7355")); gravity = Gravity.CENTER; setPadding(12, 0, 12, 4); setOnClickListener { if (game.isPaused && game.pausedByPlayer != myPlayer) { showMsgToPlayer(myPlayer, "\u6E38\u620F\u6682\u505C\u4E2D\uFF0C\u8BF7\u7B49\u5F85\u5BF9\u65B9\u6062\u590D"); return@setOnClickListener }; showSettingsDialog() } }
         panel.addView(settingsBtn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -256,7 +257,9 @@ class MainActivity : AppCompatActivity() {
                         pres.onStartOrRestart = { runOnUiThread { onStartOrRestart(otherPerspective) } }
                         pres.onUndoRequest = { runOnUiThread { requestUndo(otherPerspective) } }
                         pres.getMainActivity = { this@MainActivity }
+                        pres.onAutoToggle = { runOnUiThread { toggleAutoMode() } }
                         gamePresentation = pres
+                        pres.updateAutoButton(isAutoMode)
                         updateTauntDisplay()
                         updateStatusDisplay()
                     }
@@ -267,9 +270,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onStartOrRestart(player: Int) { if (game.isPaused) { showMsgToPlayer(player, "\u6E38\u620F\u6682\u505C\u4E2D\uFF0C\u8BF7\u5148\u6062\u590D\u6E38\u620F"); return }; if (!game.isActive) { game.startGame(player); onGameStarted(player) } else if (!game.isGameOver) requestRestart(player) else doRestart(player) }
-    private fun onGameStarted(player: Int) { updateTauntDisplay(); gomokuView.clearPreview(); gomokuView.invalidate(); gamePresentation?.refreshView(); updateButtonState(); updateStatusDisplay(); gamePresentation?.updateButtonState(); startRemindTimers(); SoundFX.playVoice(this, if (player == GomokuGame.PLAYER_BLACK) R.raw.your_turn_black else R.raw.your_turn_white) }
+    private fun onGameStarted(player: Int) { updateTauntDisplay(); gomokuView.clearPreview(); gomokuView.invalidate(); gamePresentation?.refreshView(); updateButtonState(); updateStatusDisplay(); gamePresentation?.updateButtonState(); startRemindTimers(); SoundFX.playVoice(this, if (player == GomokuGame.PLAYER_BLACK) R.raw.your_turn_black else R.raw.your_turn_white); if (isAutoMode && game.currentPlayer == GomokuGame.PLAYER_WHITE) scheduleAIMove() }
     private fun requestRestart(player: Int) { if (player == GomokuGame.PLAYER_BLACK) { gamePresentation?.showRestartRequestDialog(game.getPlayerName(player)) { a -> if (a) runOnUiThread { doRestart(player) } else runOnUiThread { showMsgToPlayer(player, "\u5BF9\u65B9\u62D2\u7EDD\u91CD\u65B0\u5F00\u59CB") } } } else { showRestartRequestDialog(game.getPlayerName(player)) { a -> if (a) doRestart(player) else showMsgToPlayer(player, "\u5BF9\u65B9\u62D2\u7EDD\u91CD\u65B0\u5F00\u59CB") } } }
-    fun doRestart(firstPlayer: Int) { animator?.cancel(); stopRemindTimers(); game.startGame(firstPlayer); updateTauntDisplay(); pauseBtnBlack?.let { it.text = "\u23F8\n\u6682\u505C"; it.background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setSize(it.width, it.height); colors = intArrayOf(Color.parseColor("#607D8B"), Color.parseColor("#37474F")); orientation = GradientDrawable.Orientation.TOP_BOTTOM; setStroke(3, Color.parseColor("#CCFFFFFF")) } }; gamePresentation?.updatePauseBtn(false); gomokuView.clearAllAnimations(); gamePresentation?.clearAllAnimations(); gomokuView.clearPreview(); gomokuView.clearMessage(); gomokuView.invalidate(); gamePresentation?.clearPreview(); gamePresentation?.clearMessage(); gamePresentation?.refreshView(); updateButtonState(); updateStatusDisplay(); gamePresentation?.updateButtonState(); startRemindTimers(); SoundFX.playVoice(this, if (firstPlayer == GomokuGame.PLAYER_BLACK) R.raw.your_turn_black else R.raw.your_turn_white) }
+    fun doRestart(firstPlayer: Int) { animator?.cancel(); stopRemindTimers(); game.startGame(firstPlayer); updateTauntDisplay(); pauseBtnBlack?.let { it.text = "\u23F8\n\u6682\u505C"; it.background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setSize(it.width, it.height); colors = intArrayOf(Color.parseColor("#607D8B"), Color.parseColor("#37474F")); orientation = GradientDrawable.Orientation.TOP_BOTTOM; setStroke(3, Color.parseColor("#CCFFFFFF")) } }; gamePresentation?.updatePauseBtn(false); gomokuView.clearAllAnimations(); gamePresentation?.clearAllAnimations(); gomokuView.clearPreview(); gomokuView.clearMessage(); gomokuView.invalidate(); gamePresentation?.clearPreview(); gamePresentation?.clearMessage(); gamePresentation?.refreshView(); updateButtonState(); updateStatusDisplay(); gamePresentation?.updateButtonState(); startRemindTimers(); SoundFX.playVoice(this, if (firstPlayer == GomokuGame.PLAYER_BLACK) R.raw.your_turn_black else R.raw.your_turn_white); if (isAutoMode && game.currentPlayer == GomokuGame.PLAYER_WHITE) scheduleAIMove() }
     fun showRestartRequestDialog(requesterName: String, callback: (Boolean) -> Unit) { AlertDialog.Builder(this).setTitle("\u91CD\u65B0\u5F00\u59CB\u8BF7\u6C42").setMessage("${requesterName}\u8BF7\u6C42\u91CD\u65B0\u5F00\u59CB\uFF0C\u662F\u5426\u540C\u610F\uFF1F").setPositiveButton("\u540C\u610F") { _, _ -> callback(true) }.setNegativeButton("\u4E0D\u540C\u610F") { _, _ -> callback(false) }.setCancelable(false).show() }
     fun showUndoRequestDialog(requesterName: String, callback: (Boolean) -> Unit) { AlertDialog.Builder(this).setTitle("\u6094\u68CB\u8BF7\u6C42").setMessage("${requesterName}\u8BF7\u6C42\u6094\u68CB\uFF0C\u662F\u5426\u540C\u610F\uFF1F").setPositiveButton("\u540C\u610F") { _, _ -> callback(true) }.setNegativeButton("\u4E0D\u540C\u610F") { _, _ -> callback(false) }.setCancelable(false).show() }
     private fun shakeMainScreen() { val v = gomokuView; ValueAnimator.ofFloat(0f, 16f, -16f, 12f, -12f, 10f, -10f, 8f, -8f, 5f, -5f, 3f, -3f, 0f).apply { duration = 2000; addUpdateListener { v.translationX = it.animatedValue as Float }; start() } }
@@ -282,12 +285,39 @@ class MainActivity : AppCompatActivity() {
     private fun showMsg(m: String) { showPopupMessage(m); gamePresentation?.showPopupMessage(m) }
     private fun showMsgToPlayer(player: Int, m: String) { if (player == myPlayer) showPopupMessage(m) else gamePresentation?.showPopupMessage(m) }
 
-    private fun handlePiecePlaced(row: Int, col: Int) { val r = game.placePiece(row, col, game.currentPlayer); if (!r.success) { showMsg(r.message); return }; SoundFX.playStoneSound(); gomokuView.clearPreview(); gomokuView.clearMessage(); gomokuView.invalidate(); gamePresentation?.clearMessage(); gamePresentation?.refreshView(); updateStatusDisplay(); if (r.gameOver) { if (r.winner == GomokuGame.PLAYER_BLACK) tauntCountBlack += 3 else if (r.winner == GomokuGame.PLAYER_WHITE) tauntCountWhite += 3; updateTauntDisplay(); stopRemindTimers(); updateButtonState(); gamePresentation?.updateButtonState(); if (r.winner == GomokuGame.PLAYER_BLACK) { gomokuView.startWinAnimation(); gamePresentation?.startLoseAnimation(); SoundFX.playVoice(this, R.raw.win_black) } else if (r.winner == GomokuGame.PLAYER_WHITE) { gomokuView.startLoseAnimation(); gamePresentation?.startWinAnimation(); SoundFX.playVoice(this, R.raw.win_white) }; startAnimationLoop() } else startRemindTimers() }
+    private fun handlePiecePlaced(row: Int, col: Int) { val r = game.placePiece(row, col, game.currentPlayer); if (!r.success) { showMsg(r.message); return }; SoundFX.playStoneSound(); gomokuView.clearPreview(); gomokuView.clearMessage(); gomokuView.invalidate(); gamePresentation?.clearMessage(); gamePresentation?.refreshView(); updateStatusDisplay(); if (r.gameOver) { if (r.winner == GomokuGame.PLAYER_BLACK) tauntCountBlack += 3 else if (r.winner == GomokuGame.PLAYER_WHITE) tauntCountWhite += 3; updateTauntDisplay(); stopRemindTimers(); updateButtonState(); gamePresentation?.updateButtonState(); if (r.winner == GomokuGame.PLAYER_BLACK) { gomokuView.startWinAnimation(); gamePresentation?.startLoseAnimation(); SoundFX.playVoice(this, R.raw.win_black) } else if (r.winner == GomokuGame.PLAYER_WHITE) { gomokuView.startLoseAnimation(); gamePresentation?.startWinAnimation(); SoundFX.playVoice(this, R.raw.win_white) }; startAnimationLoop() } else { startRemindTimers(); if (isAutoMode && game.currentPlayer == GomokuGame.PLAYER_WHITE) scheduleAIMove() } }
     fun updateStatusDisplay() { val g = game; statusText.text = if (!g.isActive) "\u26AB\u9ED1\u65B9\n\u7B49\u5F85\u5F00\u59CB..." else if (g.isGameOver) { if (g.winner == myPlayer) "\uD83C\uDF89\u4F60\u8D62\u4E86\uFF01" else if (g.winner == GomokuGame.EMPTY) "\uD83E\uDD1D\u5E73\u5C40" else "\uD83D\uDE1E\u4F60\u8F93\u4E86" } else if (g.isPaused) { if (g.pausedByPlayer == myPlayer) "\u26AB\u9ED1\u65B9\n\u23F8 \u4F60\u6682\u505C\u4E86\u6E38\u620F" else "\u26AB\u9ED1\u65B9\n\u23F8 \u5BF9\u65B9\u6682\u505C\u4E2D" } else { if (g.currentPlayer == myPlayer) "\u26AB\u9ED1\u65B9\n\uD83D\uDC49\u8F6E\u5230\u4F60\u4E86" else "\u26AB\u9ED1\u65B9\n\u23F3\u7B49\u5F85\u5BF9\u65B9" }; gamePresentation?.updateStatusText() }
     private fun startAnimationLoop() { animator?.cancel(); animator = ValueAnimator.ofFloat(0f, 1f).apply { duration = 33; repeatCount = ValueAnimator.INFINITE; addUpdateListener { val a1 = gomokuView.updateAnimation(); val a2 = gamePresentation?.updateAnimation() ?: false; if (!a1 && !a2) cancel() }; start() } }
     private fun startEggAnimLoop() { animator?.cancel(); animator = ValueAnimator.ofFloat(0f, 1f).apply { duration = 80; repeatCount = ValueAnimator.INFINITE; addUpdateListener { val a1 = gomokuView.updateAnimation(); val a2 = gamePresentation?.updateAnimation() ?: false; if (!a1 && !a2) cancel() }; start() } }
     private fun startRemindTimers() { stopRemindTimers(); if (!game.isActive || game.isGameOver) return; if (game.isPaused) { countdownText.text = "\u23F8"; gamePresentation?.setCountdown(-2); return }; secondsLeft = 60; val cur = game.currentPlayer; val myTurn = cur == myPlayer; if (myTurn) updateCountdown() else countdownText.text = ""; gamePresentation?.setCountdown(if (cur == GomokuGame.PLAYER_WHITE) secondsLeft else -1); countdownRunnable = object : Runnable { override fun run() { if (!game.isActive || game.isGameOver) { stopRemindTimers(); return }; if (game.isPaused) { countdownText.text = "\u23F8"; gamePresentation?.setCountdown(-2); return }; if (game.currentPlayer != cur) { startRemindTimers(); return }; secondsLeft--; if (secondsLeft <= 0) { if (cur == myPlayer) gomokuView.startEggAnimation() else gamePresentation?.startEggAnimation(); startEggAnimLoop(); SoundFX.playEggSplat(); SoundFX.playVoice(this@MainActivity, if (cur == GomokuGame.PLAYER_BLACK) R.raw.too_slow_black else R.raw.too_slow_white); secondsLeft = 60; if (cur == myPlayer) updateCountdown(); gamePresentation?.setCountdown(if (cur == GomokuGame.PLAYER_WHITE) secondsLeft else -1); handler.postDelayed(this, 1000); return }; if (cur == myPlayer) updateCountdown(); gamePresentation?.setCountdown(if (cur == GomokuGame.PLAYER_WHITE) secondsLeft else -1); if (secondsLeft == 30) { SoundFX.playVoice(this@MainActivity, if (cur == GomokuGame.PLAYER_BLACK) R.raw.wait_30s_black else R.raw.wait_30s_white); if (cur == myPlayer) shakeMainScreen() else gamePresentation?.shakeScreen() }; handler.postDelayed(this, 1000) } }; handler.postDelayed(countdownRunnable!!, 1000) }
     fun updateTauntDisplay() { val c = if (myPlayer == GomokuGame.PLAYER_BLACK) tauntCountBlack else tauntCountWhite; tauntCountText?.text = "\u00D7$c"; gamePresentation?.setTauntCount(if (myPlayer == GomokuGame.PLAYER_BLACK) tauntCountWhite else tauntCountBlack) }
+
+    fun toggleAutoMode() {
+        isAutoMode = !isAutoMode
+        gamePresentation?.updateAutoButton(isAutoMode)
+        if (isAutoMode && game.isActive && !game.isGameOver && !game.isPaused) {
+            if (game.currentPlayer == GomokuGame.PLAYER_WHITE) scheduleAIMove()
+        }
+    }
+
+    private fun scheduleAIMove() {
+        handler.postDelayed({
+            if (!isAutoMode || !game.isActive || game.isGameOver || game.isPaused) return@postDelayed
+            if (game.currentPlayer != GomokuGame.PLAYER_WHITE) return@postDelayed
+            Thread {
+                // 复制棋盘——防止 AI 搜索时修改原棋盘导致 UI 渲染异常
+                val copy = Array(15) { r -> IntArray(15) { c -> game.board[r][c] } }
+                val move = GomokuAI.findBestMove(copy, GomokuGame.PLAYER_WHITE)
+                handler.post {
+                    if (move != null && isAutoMode && game.isActive && !game.isGameOver
+                        && !game.isPaused && game.currentPlayer == GomokuGame.PLAYER_WHITE) {
+                        handlePiecePlaced(move.first, move.second)
+                    }
+                }
+            }.start()
+        }, 400)
+    }
+
     private fun updateCountdown() { countdownText.text = "\u23F1${secondsLeft}s" }
     private fun stopRemindTimers() { countdownRunnable?.let { handler.removeCallbacks(it) }; countdownRunnable = null; if (::countdownText.isInitialized) countdownText.text = ""; gamePresentation?.setCountdown(-1) }
 
