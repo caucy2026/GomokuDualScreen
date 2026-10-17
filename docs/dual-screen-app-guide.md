@@ -1,4 +1,4 @@
-﻿# KEMI 双屏对战应用适配指南（V1.0）
+# KEMI 双屏对战应用适配指南（V1.1）
 
 适用于 KEMI Vibe Pads S1 / `hi3781v730` / Android 12，**两名玩家各看一面**的双屏应用
 （棋类对战、卡牌、双人小游戏等）。单页瀑布拼接、A 字同显类应用不适用本文的玩家归属部分，
@@ -222,11 +222,42 @@ fun closePeer(peerAlive: Boolean, panelsAvailable: Int, replaced: Boolean, migra
 
 ---
 
-## 7. 会话持久化
+## 7. 会话、界面与状态一致性
+
+### 7.1 持久化
 
 - 对局状态、历史、回合、暂停次数写 `AtomicFile`，落子后和 `onStop` 时各存一次；
 - Activity 重建（转屏/切形态）共享内存单例会话，进程被杀后从文件恢复；
 - **不要在触摸事件里写盘**：每次 MOVE 都序列化整局会卡。
+
+### 7.2 会话对象只有一份，视图不要缓存
+
+两块屏的 Activity 各自持有 UI，但**对局状态必须始终读同一个单例**：
+
+```kotlin
+// 对：每次都取单例
+private val game: GomokuGame get() = GameState.game
+
+// 错：onCreate 里存一份，之后会话被替换就指到旧对象
+private lateinit var game: GomokuGame
+```
+
+缓存实例的后果是两侧状态各说各话：状态栏显示“轮到你”，棋盘判断却是“不是你的回合”，
+点击直接被拒且没有提示。真机上我们就是被这个坑过一次——白方窗口拿着旧对象，白子落不下去。
+
+凡是“会话被替换”的路径都要考虑：从文件恢复、Activity 重建、换对局。视图里只留 `get()` 引用，
+不要留字段。
+
+### 7.3 请求确认弹窗：两块屏必须同款
+
+“重新开始 / 悔棋 / 退出”这类需要对方同意的弹窗，有三条硬要求：
+
+1. **同一套样式**：一边用系统 `AlertDialog`、一边自绘卡片，用户会在两块屏上看到两种样子；
+2. **开在被请求方那侧**：谁发起，弹窗就出现在对方屏上，由对方点同意/不同意；
+3. **跟着那块屏一起转**：弹窗挂在被请求方的内容根 View 里，旋转 180° 时跟着转，发起方看到的是倒的。
+
+实现方式：抽一个共用的确认框（本项目是 `RequestDialogs`），两种 Activity 都调它，
+只按请求类型换颜色（重新开始橙、悔棋蓝、退出红）。同时只允许存在一个确认框，连点不叠。
 
 ---
 
@@ -245,6 +276,8 @@ fun closePeer(peerAlive: Boolean, panelsAvailable: Int, replaced: Boolean, migra
 - [ ] 按住期间切形态：旧手势被取消，不误落子
 - [ ] 对局不重开
 - [ ] 侧滑/返回退出：两屏都退干净
+- [ ] 两侧各点一次“重新开始/悔棋/退出”：弹窗都出现在**对方屏**，且两块屏样式一致
+- [ ] 按住落子中切形态：旧手势取消、不误落子；切完继续下，两侧回合显示一致
 
 ### 8.2 日志字段
 
@@ -273,6 +306,7 @@ adb logcat -s BattleDisplay                       # 应用自己的状态日志
 | 玩家→display 映射、方向换算 | `app/src/main/java/com/gomoku/dualscreen/PanelMap.kt` |
 | 双屏会话、过渡屏障、窗口绑定、退出 | `app/src/main/java/com/gomoku/dualscreen/BattleDisplayActivity.kt` |
 | 退出策略（是否连对方一起退） | `app/src/main/java/com/gomoku/dualscreen/ExitPolicy.kt` |
+| 请求确认弹窗（重开/悔棋/退出，两屏同款） | `app/src/main/java/com/gomoku/dualscreen/RequestDialogs.kt` |
 | 两个玩家窗口 | `MainActivity.kt`（黑）、`GamePresentation.kt`（白） |
 | 会话持久化 | `GameState.kt`、`GomokuGame.kt` |
 | 单元测试 | `app/src/test/java/com/gomoku/dualscreen/` |
@@ -298,7 +332,17 @@ gradlew testDebugUnitTest assembleRelease
 | 帧率/耗电异常 | 每 100ms 拉一次 `getprop` 进程 | 反射读属性 |
 | 截图判断朝向判错 | `screencap` 是合成前画面 | 看实体屏 |
 | 转屏后 Activity 重建丢局 | 会话未持久化 | `AtomicFile` + 单例会话 |
+| 状态栏说“轮到你”，棋盘却说“等对方” | 视图缓存了对局实例，会话被替换后指向旧对象 | 视图只留 `GameState.game` 的 `get()` 引用 |
+| 副屏点重开，主屏弹窗跟平时长得不一样 | 一边系统 `AlertDialog`、一边自绘卡片 | 请求弹窗抽共用实现，两屏同款 |
+| 两侧弹窗叠了两个 | 连点没有去重 | 同一时刻只允许一个确认框 |
 
 ---
 
-*本文依据固件说明 `AI双屏助手产品形态与软件状态说明.md`（V1.1，第七章）与五子棋双屏 4.7 的实机验证结论整理。*
+*本文依据固件说明 `AI双屏助手产品形态与软件状态说明.md`（V1.1，第七章）与五子棋双屏 4.7.3 的实机验证结论整理。*
+
+## 修订记录
+
+| 版本 | 日期 | 变更 |
+| --- | --- | --- |
+| V1.1 | 2026-10-17 | 补“会话对象只有一份、视图不缓存”“请求弹窗两屏同款、开在被请求方”；新增对应坑位与验收项 |
+| V1.0 | 2026-10-17 | 首版：映射、方向（显示投影）、窗口绑定、过渡屏障、遮罩、退出 |
