@@ -24,4 +24,18 @@ class ExitPolicyTest {
     @Test fun nothingToCloseWhenPeerIsGone() {
         assertFalse(ExitPolicy.closePeer(peerAlive = false, panelsAvailable = 2, replaced = false, migrating = false))
     }
+
+    @Test fun loneWindowIsClosedWhenThePeerVanishedWithItsPanelStillOn() {
+        // 另一扇被系统直接收掉（锁屏/任务被清），剩一扇不该继续等
+        assertTrue(ExitPolicy.reconcileClose(hostCount = 1, panelsAvailable = 2))
+    }
+
+    @Test fun loneWindowKeepsWaitingWhenOnlyOnePanelIsLeft() {
+        assertFalse(ExitPolicy.reconcileClose(hostCount = 1, panelsAvailable = 1))
+    }
+
+    @Test fun reconcileDoesNothingWhileBothWindowsAreAlive() {
+        assertFalse(ExitPolicy.reconcileClose(hostCount = 2, panelsAvailable = 2))
+        assertFalse(ExitPolicy.reconcileClose(hostCount = 0, panelsAvailable = 2))
+    }
 }

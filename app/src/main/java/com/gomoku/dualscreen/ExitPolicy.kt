@@ -15,4 +15,11 @@ object ExitPolicy {
      */
     fun closePeer(peerAlive: Boolean, panelsAvailable: Int, replaced: Boolean, migrating: Boolean): Boolean =
         !migrating && !replaced && peerAlive && panelsAvailable >= 2
+
+    /**
+     * 宽限期到了还只剩一扇窗口，说明另一扇是被系统直接收掉的（不走 isFinishing），
+     * 这时剩下那扇也不该继续等；但如果确实只剩一块可用面板，那是等屏恢复，保留。
+     */
+    fun reconcileClose(hostCount: Int, panelsAvailable: Int): Boolean =
+        hostCount == 1 && panelsAvailable >= 2
 }

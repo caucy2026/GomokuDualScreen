@@ -138,23 +138,37 @@ abstract class BattleDisplayActivity : AppCompatActivity() {
  */
 object BattleDisplays {
     fun hasWindow(player: Int) = hosts.containsKey(player)
-    fun configurationChanged() { invalidate() }
+
+    /**
+     * 窗口/显示有变化时只做一次“重新核对”，真正的失效留给 update() 里的指纹比较。
+     * 以前这里直接 invalidate()，而这台设备的 DisplayListener 会为一个无关变化反复回调
+     * （亮度、模式刷新等），于是遮罩被反复重建，屏幕上一直闪“等待双屏就绪”。
+     */
+    fun configurationChanged() { recheck() }
+
+    private fun recheck() {
+        if (hosts.isEmpty()) return
+        update(readProperty("persist.vendor.display.master"), readProperty("vendor.nl.screen_mode"))
+    }
+
     var ready = false; private set
     var version = 0L; private set
     private val hosts = mutableMapOf<Int, BattleDisplayActivity>()
     private val frames = mutableSetOf<Int>()
     private val handler = Handler(Looper.getMainLooper())
+    private val RECONCILE_DELAY_MS = 1500L
     private var executor: java.util.concurrent.ScheduledExecutorService? = null
     private var signature = ""
     private var lifecycle = 0L
     private var displayManager: DisplayManager? = null
     private val listener = object : DisplayManager.DisplayListener {
-        override fun onDisplayAdded(id: Int) { invalidate() }
-        override fun onDisplayRemoved(id: Int) { invalidate() }
-        override fun onDisplayChanged(id: Int) { invalidate() }
+        override fun onDisplayAdded(id: Int) { recheck() }
+        override fun onDisplayRemoved(id: Int) { recheck() }
+        override fun onDisplayChanged(id: Int) { recheck() }
     }
 
     fun attach(host: BattleDisplayActivity) {
+        handler.removeCallbacks(reconcile)
         hosts[host.battlePlayer]?.takeUnless { it === host }?.finish()
         hosts[host.battlePlayer] = host
         invalidate()
@@ -185,6 +199,24 @@ object BattleDisplays {
         if (hosts.isEmpty()) {
             executor?.shutdownNow(); executor = null; lifecycle++
             displayManager?.unregisterDisplayListener(listener); displayManager = null
+            handler.removeCallbacks(reconcile)
+        } else {
+            // 有时一扇窗口是被系统直接收掉的（不走 isFinishing，例如锁屏/息屏/任务被清），
+            // 剩下那扇会一直等。给一点宽限：这期间没被新窗口补上，就收掉它。
+            handler.removeCallbacks(reconcile)
+            handler.postDelayed(reconcile, RECONCILE_DELAY_MS)
+        }
+    }
+
+    private val reconcile = Runnable {
+        if (ExitPolicy.reconcileClose(hosts.size, availablePanels())) {
+            hosts.values.firstOrNull()?.let { lone ->
+                android.util.Log.i(
+                    "BattleDisplay",
+                    "peer window vanished, closing remaining player=${lone.battlePlayer}"
+                )
+                runCatching { lone.finishAffinity() }
+            }
         }
     }
 
@@ -244,8 +276,11 @@ object BattleDisplays {
         val secondary = panels.firstOrNull { it.displayId != Display.DEFAULT_DISPLAY }
         val routes = PanelMap.routes(primary?.displayId ?: -1, secondary?.displayId, master)
 
+        // 指纹只放真正影响绑定的东西：id、rotation、尺寸。
+        // 不要把 state 放进来：这块屏的 state 会在 ON/DIM 之间来回变（亮度、屏保），
+        // 一进指纹就会不停失效，屏幕上就是一直闪“等待双屏就绪”。
         val next = "${master ?: "?"}|${shape ?: "?"}|" + panels.joinToString {
-            "${it.displayId}:${it.state}:${it.rotation}:${it.name}"
+            "${it.displayId}:${it.rotation}:${it.name}"
         }
         if (signature != next) {
             invalidate(); signature = next
