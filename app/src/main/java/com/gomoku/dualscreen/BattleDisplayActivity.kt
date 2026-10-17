@@ -47,6 +47,18 @@ abstract class BattleDisplayActivity : AppCompatActivity() {
         super.onStop()
     }
 
+    override fun onBackPressed() {
+        // 侧滑/返回退出是整机退出：两侧窗口属于两个 task，只 finish 自己会留下另一屏等双屏。
+        BattleDisplays.closeAll()
+        super.onBackPressed()
+    }
+
+    override fun onDestroy() {
+        // 系统或用户关掉其中一扇窗口时，另一扇不能干等“等待双屏就绪”。
+        if (isFinishing) BattleDisplays.windowClosed(this, moving)
+        super.onDestroy()
+    }
+
     /** 中性遮罩：只在固件状态读不到或只剩一块屏时出现，出现期间双方都不能落子。 */
     fun shield(message: String) {
         val root = findViewById<FrameLayout>(android.R.id.content)
@@ -174,6 +186,33 @@ object BattleDisplays {
             executor?.shutdownNow(); executor = null; lifecycle++
             displayManager?.unregisterDisplayListener(listener); displayManager = null
         }
+    }
+
+    /** 两侧一起退出：两个 Activity 在两个 task 里，必须逐个 finish，否则留下一屏空等。 */
+    fun closeAll() {
+        val open = hosts.values.toList()
+        executor?.shutdownNow(); executor = null; lifecycle++
+        displayManager?.unregisterDisplayListener(listener); displayManager = null
+        ready = false; frames.clear()
+        hosts.clear()
+        open.forEach { runCatching { it.finishAffinity() } }
+    }
+
+    /**
+     * 一扇窗口真的被关掉时（不是迁移、不是被新窗口替换），另一扇也要退出；
+     * 但如果另一块面板本身已经没了/灭了，那是“等双屏恢复”，不能跟着退。
+     */
+    fun windowClosed(host: BattleDisplayActivity, migrating: Boolean) {
+        val replaced = hosts[host.battlePlayer] != null
+        val peer = hosts.values.firstOrNull()
+        if (!ExitPolicy.closePeer(peer != null, availablePanels(), replaced, migrating)) return
+        android.util.Log.i("BattleDisplay", "player=${host.battlePlayer} closed, finishing peer window")
+        peer?.let { runCatching { it.finishAffinity() } }
+    }
+
+    private fun availablePanels(): Int {
+        val dm = displayManager ?: return 0
+        return dm.displays.count { !isVirtualDisplay(it) && it.isValid && it.state != Display.STATE_OFF }
     }
 
     private fun invalidate() {
