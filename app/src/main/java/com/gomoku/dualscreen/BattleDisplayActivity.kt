@@ -72,7 +72,7 @@ abstract class BattleDisplayActivity : AppCompatActivity() {
         if (this is GamePresentation) clearPreview()
     }
 
-    fun bind(target: Int, token: String, version: Long) {
+    fun bind(target: Int, token: String, version: Long, rotation: Float) {
         if (moving) return
         if (display?.displayId != target) {
             moving = true
@@ -92,10 +92,9 @@ abstract class BattleDisplayActivity : AppCompatActivity() {
         if (root.width == 0 || root.height == 0) return
         if (applied == token && lastSize == size) return
         applied = token; lastSize = size
-        // 抵消系统按整机姿态加的旋转，让画面固定在物理面板上，不随设备转动而翻过去。
+        // 抵消系统投影（含整机姿态与屏幕交换），让画面固定在物理面板上。
         // ViewGroup 会把逆变换套到触摸上，所以落子坐标不需要另外换算。
-        val wanted = PanelMap.contentRotation(display?.rotation ?: 0)
-        if (root.rotation != wanted) root.rotation = wanted
+        if (root.rotation != rotation) root.rotation = rotation
         val observer = root.viewTreeObserver
         observer.registerFrameCommitCallback {
             if (!isFinishing && applied == token) BattleDisplays.frame(this, version)
@@ -219,7 +218,11 @@ object BattleDisplays {
         }
         hosts.toMap().forEach { (player, activity) ->
             val target = routes[player] ?: return@forEach
-            activity.bind(target, "$version:$next", version)
+            val windowRotation = dm.getDisplay(target)?.rotation ?: activity.display?.rotation ?: 0
+            activity.bind(
+                target, "$version:$next", version,
+                PanelMap.contentRotation(windowRotation, master, shape)
+            )
         }
     }
 

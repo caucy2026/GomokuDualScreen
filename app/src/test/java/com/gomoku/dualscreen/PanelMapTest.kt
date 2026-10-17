@@ -48,15 +48,28 @@ class PanelMapTest {
     }
 
     @Test fun contentStaysAnchoredWhenTheDeviceTurns() {
-        // 0° 姿态：主屏 rotation 0、副屏 rotation 2 → 黑方不转、白方转 180°
-        assertEquals(0f, PanelMap.contentRotation(0), 0f)
-        assertEquals(180f, PanelMap.contentRotation(2), 0f)
-        // 整机转 180° 后系统把两屏 rotation 换成 2 和 0，应用要反过来抵消，
-        // 这样落在面板上的朝向和转动前一致，不会出现“画面跟着设备翻过去”。
-        assertEquals(180f, PanelMap.contentRotation(2), 0f)
-        assertEquals(0f, PanelMap.contentRotation(0), 0f)
-        // 本产品只有 0°/180° 两种投影
-        assertEquals(0f, PanelMap.contentRotation(1), 0f)
-        assertEquals(0f, PanelMap.contentRotation(3), 0f)
+        // 0° 姿态、未交换：窗口 rotation 0 / 2 → 应用 0° / 180°，落在面板上都是正向
+        assertEquals(0f, PanelMap.contentRotation(0, "0", null), 0f)
+        assertEquals(180f, PanelMap.contentRotation(2, "0", null), 0f)
+        // 整机 180°、未交换：窗口 rotation 换成 2 / 0，应用反着补
+        assertEquals(180f, PanelMap.contentRotation(2, "0", null), 0f)
+        assertEquals(0f, PanelMap.contentRotation(0, "0", null), 0f)
+    }
+
+    @Test fun contentStaysAnchoredWhenScreensAreSwapped() {
+        // 交换后投影再整体加 180°（固件说明场景 02/06），所以应用要再补 180°
+        assertEquals(180f, PanelMap.contentRotation(0, "1", "-1"), 0f)
+        assertEquals(0f, PanelMap.contentRotation(2, "1", "-1"), 0f)
+    }
+
+    @Test fun aShapeDoesNotAddSwapCompensation() {
+        // A 字（screen_mode=1）投影不再叠加交换补偿（场景 09/10）
+        assertEquals(0f, PanelMap.contentRotation(0, "1", "1"), 0f)
+        assertEquals(180f, PanelMap.contentRotation(2, "1", "1"), 0f)
+    }
+
+    @Test fun oddRotationsFallBackToZero() {
+        assertEquals(0f, PanelMap.contentRotation(1, "0", null), 0f)
+        assertEquals(0f, PanelMap.contentRotation(3, "0", null), 0f)
     }
 }

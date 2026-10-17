@@ -29,16 +29,28 @@ object PanelMap {
     }
 
     /**
-     * 画面绑定实体面板，不跟着整机转动走。
+     * 画面绑定实体面板，不跟着整机转动或屏幕交换翻过去。
      *
-     * 系统会按整机姿态给每块屏的输出加旋转（例如整机转 180° 后，两块屏的 orientation 变成 2 和 0），
-     * 应用若原样跟随，人看到的就是画面整体翻过去。这里用该窗口所在显示的系统 rotation 反过来抵消，
-     * 使最终落在面板上的朝向与 0° 姿态时一致。
+     * 最终落在面板上的朝向 = 应用旋转 + 显示投影方向。固件说明第七章第 3 节的实测表给出：
+     * 普通形态下投影方向等于窗口 rotation；打开屏幕交换后，投影方向再整体加 180°
+     * （场景 02/06：窗口 [0,2] 对应投影 [2,0]，窗口 [2,0] 对应投影 [0,2]）；
+     * A 字形态不叠加这次交换补偿（场景 09/10 两者相同）。
      *
+     * 所以应用要抵消的是投影方向，不是窗口 rotation：
+     *
+     *     投影 = 窗口 rotation×90 + (已交换且非 A 字 ? 180 : 0)
+     *     应用旋转 = 360 - 投影
+     *
+     * 只要这么算，任何姿态、交换开或关，面板上的朝向都不变。
      * 本产品只出现 0°/180° 两种投影（1920×1280 横屏面板），90°/270° 需要换宽高，不在范围内。
      */
-    fun contentRotation(displayRotation: Int): Float = when (displayRotation) {
-        2 -> 180f
-        else -> 0f
+    fun contentRotation(windowRotation: Int, master: String?, screenMode: String?): Float {
+        val window = (windowRotation % 4) * 90
+        // A 字（screen_mode=1）不叠加交换补偿；形态未知时按“叠加”处理，与实测场景 02/06 一致。
+        val swapped = master == "1" && screenMode != "1"
+        val projection = (window + if (swapped) 180 else 0) % 360
+        // 竖持姿态（90°/270°）需要换宽高，本产品未定义，直接不补，避免把画面转到侧面。
+        if (projection % 180 != 0) return 0f
+        return ((360 - projection) % 360).toFloat()
     }
 }
