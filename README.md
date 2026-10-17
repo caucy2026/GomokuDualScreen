@@ -2,7 +2,7 @@
 
 双屏五子棋 Android 应用 — 物理面板 A⚫黑方 + 物理面板 B⚪白方，支持人机 AI 对战。
 
-双屏适配规则见 [docs/dual-screen-app-guide.md](docs/dual-screen-app-guide.md)，上架说明见 [docs/release-notes-4.7.3.md](docs/release-notes-4.7.3.md)：玩家绑定物理面板，
+双屏适配规则见 [docs/dual-screen-app-guide.md](docs/dual-screen-app-guide.md)，上架说明见 [docs/release-notes-4.7.3.md](docs/release-notes-4.7.3.md)、[发布报告](docs/release-report-4.7.3.md)：玩家绑定物理面板，
 方向抵消显示投影，退出两侧联动。
 
 ## 截图
