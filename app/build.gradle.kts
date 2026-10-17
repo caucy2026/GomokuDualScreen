@@ -24,8 +24,8 @@ android {
         minSdk = 31
         targetSdk = 34
         // 每次提测/上架都递增 versionCode，versionName 同步进版本历史。
-        versionCode = 6
-        versionName = "4.7.2"
+        versionCode = 7
+        versionName = "4.7.3"
     }
 
     buildFeatures {
