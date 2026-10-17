@@ -24,9 +24,6 @@ android {
                 "proguard-rules.pro"
             )
         }
-        debug {
-            applicationIdSuffix = ".battlefix"
-        }
     }
 
     compileOptions {

@@ -28,7 +28,7 @@
 
 已标定画面可以点击 `V4.6 · 校准` 重新打开本屏校准页。
 
-配置在应用私有目录 `files/battle-display.json`，支持使用 `adb shell run-as com.gomoku.dualscreen.battlefix cat files/battle-display.json` 导出测试包标定。
+配置在应用私有目录 `files/battle-display.json`，可用 `adb shell run-as com.gomoku.dualscreen cat files/battle-display.json` 导出核对。
 
 ## 切换与恢复
 
@@ -50,4 +50,4 @@ JDK 17、Android SDK 34、Gradle wrapper 8.5：
 java -classpath gradle/wrapper/gradle-wrapper.jar org.gradle.wrapper.GradleWrapperMain assembleDebug testDebugUnitTest
 ```
 
-Debug 包 ID 为 `com.gomoku.dualscreen.battlefix`，使用标准开发签名，与原包并存。Release 保留原包 ID，但移除了仓库中机器路径绑定的签名配置；正式覆盖升级必须使用原发布签名。不得卸载原包来绕过签名不匹配。
+Debug 与 Release 使用同一个包 ID `com.gomoku.dualscreen`。仓库里机器路径绑定的发布签名配置已移除，正式覆盖升级必须使用原发布签名；不得卸载原包来绕过签名不匹配。
