@@ -47,8 +47,16 @@ class PanelMapTest {
         assertEquals(0, routes?.get(GomokuGame.PLAYER_WHITE))
     }
 
-    @Test fun whiteViewIsTurnedAroundForTheOpposingPlayer() {
-        assertEquals(0f, PanelMap.contentRotation(GomokuGame.PLAYER_BLACK), 0f)
-        assertEquals(180f, PanelMap.contentRotation(GomokuGame.PLAYER_WHITE), 0f)
+    @Test fun contentStaysAnchoredWhenTheDeviceTurns() {
+        // 0° 姿态：主屏 rotation 0、副屏 rotation 2 → 黑方不转、白方转 180°
+        assertEquals(0f, PanelMap.contentRotation(0), 0f)
+        assertEquals(180f, PanelMap.contentRotation(2), 0f)
+        // 整机转 180° 后系统把两屏 rotation 换成 2 和 0，应用要反过来抵消，
+        // 这样落在面板上的朝向和转动前一致，不会出现“画面跟着设备翻过去”。
+        assertEquals(180f, PanelMap.contentRotation(2), 0f)
+        assertEquals(0f, PanelMap.contentRotation(0), 0f)
+        // 本产品只有 0°/180° 两种投影
+        assertEquals(0f, PanelMap.contentRotation(1), 0f)
+        assertEquals(0f, PanelMap.contentRotation(3), 0f)
     }
 }
