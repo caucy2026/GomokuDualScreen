@@ -18,7 +18,8 @@ import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
 
-class GamePresentation : Activity() {
+class GamePresentation : BattleDisplayActivity() {
+    override val battlePlayer = GomokuGame.PLAYER_WHITE
 
     companion object {
         var instance: GamePresentation? = null
@@ -27,7 +28,7 @@ class GamePresentation : Activity() {
     }
 
     private val playerPerspective: Int get() = sharedPerspective
-    private val game: GomokuGame get() = sharedGame
+    private val game: GomokuGame get() = GameState.game
 
     private var gomokuView: GomokuView? = null
     internal val gomoku: GomokuView? get() = gomokuView
@@ -47,9 +48,10 @@ class GamePresentation : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        GameState.restore(this)
         instance = this
         // V4.0: 视角由 MainActivity 根据目标显示屏 ID 显式设置，不自行检测
-        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         val root = LinearLayout(this).apply {
@@ -152,7 +154,7 @@ class GamePresentation : Activity() {
         undoBtn.setOnClickListener { onUndoRequest?.invoke() }
         panel.addView(startBtn, LinearLayout.LayoutParams(btnSize, btnSize).apply { bottomMargin = btnMargin; rightMargin = btnMargin2 })
         panel.addView(undoBtn, LinearLayout.LayoutParams(btnSize, btnSize).apply { bottomMargin = 8; rightMargin = btnMargin2 })
-        panel.addView(TextView(this).apply { text = "V4.5"; textSize = 10f; setTextColor(Color.parseColor("#998B7355")); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        panel.addView(TextView(this).apply { text = "V4.6 · 校准"; setOnClickListener { startActivity(Intent(this@GamePresentation, DisplayCalibrationActivity::class.java)) }; textSize = 10f; setTextColor(Color.parseColor("#998B7355")); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         val settingsBtn = TextView(this).apply { text = "\u2261"; textSize = 22f; setTextColor(Color.parseColor("#998B7355")); gravity = Gravity.CENTER; setPadding(12, 0, 12, 4); setOnClickListener { showSettingsDialog() } }
         panel.addView(settingsBtn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -160,6 +162,7 @@ class GamePresentation : Activity() {
         val panelLp = if (isLandscape()) LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.MATCH_PARENT) else LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         root.addView(panel, panelLp)
         setContentView(root)
+        GameState.mainActivity?.connectWhiteScreen(this)
     }
 
     private fun create3DButton(text: String, colorTop: String, colorBottom: String, size: Int): Button = Button(this).apply {
@@ -261,15 +264,15 @@ class GamePresentation : Activity() {
         instance = null
         finishAffinity()
     }
-    override fun onUserLeaveHint() {
-        super.onUserLeaveHint()
-        getMainActivity?.invoke()?.finishAffinity()
-        instance = null
-        finishAffinity()
+    override fun onUserLeaveHint() { super.onUserLeaveHint() }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        recreate()
     }
 
     override fun onDestroy() {
-        instance = null
+        if (instance === this) instance = null
         super.onDestroy()
     }
 }

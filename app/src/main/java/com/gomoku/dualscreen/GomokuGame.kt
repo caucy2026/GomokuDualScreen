@@ -3,7 +3,7 @@ package com.gomoku.dualscreen
 /**
  * 五子棋游戏核心逻辑
  */
-class GomokuGame {
+class GomokuGame : java.io.Serializable {
     companion object {
         const val BOARD_SIZE = 15
         const val EMPTY = 0
@@ -58,6 +58,7 @@ class GomokuGame {
      */
     fun placePiece(row: Int, col: Int, player: Int): PlaceResult {
         if (!isActive) return PlaceResult(false, "请先点击开始游戏")
+        if (isPaused) return PlaceResult(false, "游戏暂停中")
         if (isGameOver) {
             return PlaceResult(false, "游戏已结束，请重新开始")
         }

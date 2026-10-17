@@ -12,16 +12,19 @@
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
-        android:label="五子棋双屏"
+        android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.GomokuDualScreen"
         android:resizeableActivity="true">
+
+        <activity android:name=".DisplayCalibrationActivity" android:exported="false"
+            android:screenOrientation="unspecified" />
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
-            android:screenOrientation="landscape">
+            android:screenOrientation="unspecified">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -30,9 +33,10 @@
 
         <activity
             android:name=".GamePresentation"
+            android:taskAffinity="${applicationId}.white"
             android:exported="false"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize"
-            android:screenOrientation="landscape"
-            android:launchMode="singleInstance" />
+            android:screenOrientation="unspecified"
+            android:launchMode="standard" />
     </application>
 </manifest>

@@ -258,6 +258,8 @@ class GomokuView @JvmOverloads constructor(
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (event.action == MotionEvent.ACTION_CANCEL) { clearPreview(); return true }
+        if (!BattleDisplays.ready) return true
         if (event.action != MotionEvent.ACTION_DOWN) return true
         val g = game ?: return true
         if (g.isPaused) { message = "游戏暂停中"; invalidate(); return true }

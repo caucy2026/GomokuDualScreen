@@ -11,30 +11,21 @@ android {
         applicationId = "com.gomoku.dualscreen"
         minSdk = 31
         targetSdk = 34
-        versionCode = 2
-        versionName = "4.5"
-    }
-
-    signingConfigs {
-        create("release") {
-            storeFile = file("D:\\qianming\\debug.keystore")
-            storePassword = "880203"
-            keyAlias = "androiddebugkey"
-            keyPassword = "880203"
-        }
+        versionCode = 3
+        versionName = "4.6"
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
         debug {
-            signingConfig = signingConfigs.getByName("release")
+            applicationIdSuffix = ".battlefix"
         }
     }
 
@@ -49,6 +40,7 @@ android {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("com.google.android.material:material:1.11.0")
