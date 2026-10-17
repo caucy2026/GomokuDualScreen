@@ -1,8 +1,8 @@
-# GomokuDualScreen V4.7
+﻿# GomokuDualScreen V4.7.3
 
 双屏五子棋 Android 应用 — 物理面板 A⚫黑方 + 物理面板 B⚪白方，支持人机 AI 对战。
 
-双屏适配规则见 [docs/dual-screen-app-guide.md](docs/dual-screen-app-guide.md)：玩家绑定物理面板，
+双屏适配规则见 [docs/dual-screen-app-guide.md](docs/dual-screen-app-guide.md)，上架说明见 [docs/release-notes-4.7.3.md](docs/release-notes-4.7.3.md)：玩家绑定物理面板，
 方向抵消显示投影，退出两侧联动。
 
 ## 截图
@@ -77,7 +77,7 @@ adb install -r app\build\outputs\apk\release\app-release.apk
 
 | 版本 | 关键变更 |
 |------|----------|
-| V4.7 | 双屏适配重做：玩家绑定物理面板、方向抵消显示投影、退出两侧联动、会话持久化；见 [CHANGELOG](CHANGELOG.md) |
+| V4.7.x | 双屏适配重做：玩家绑定物理面板、方向抵消显示投影、退出两侧联动、会话持久化；见 [CHANGELOG](CHANGELOG.md) |
 | V4.6 | 双屏修复内部迭代（逐状态标定方案，未发布，已由 4.7 取代） |
 | V4.5 | 🤖 AI 自动对战 + 棋子顺序双屏同步 + 评估函数修复 |
 | V4.4 | 白方挑衅次数同步修复 |
