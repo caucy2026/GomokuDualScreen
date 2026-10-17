@@ -21,7 +21,9 @@ class DisplayCalibrationActivity : Activity() {
             setPadding(32, 32, 32, 32); setBackgroundColor(Color.WHITE)
         }
         root.addView(TextView(this).apply {
-            text = "↑ 基准上边 ↑\n左上                         右上\n\n逻辑显示 $id\n$key\n\n先在 0° 时给实体面板贴 A/B 与上边标记。\n每种状态都按原标记选本屏身份。\n调整箭头与标记对齐后保存；未知状态必须重新核验。"
+            val unknownShape = if (key.split(":").getOrNull(1) == "?")
+                "\n\n固件未提供 vendor.nl.screen_mode：本状态按未知形态单独标定，换形态后需重新核验。" else ""
+            text = "↑ 基准上边 ↑\n左上                         右上\n\n逻辑显示 $id\n$key$unknownShape\n\n先在 0° 时给实体面板贴 A/B 与上边标记。\n每种状态都按原标记选本屏身份。\n调整箭头与标记对齐后保存；未知状态必须重新核验。"
             textSize = 22f; gravity = Gravity.CENTER; setTextColor(Color.BLACK)
         })
         root.addView(Button(this).apply {
@@ -29,8 +31,8 @@ class DisplayCalibrationActivity : Activity() {
             setOnClickListener { correction = 180 - correction; root.rotation = correction.toFloat() }
         })
         fun save(panel: String) {
-            if (key.isEmpty() || key.contains("null") || key != BattleDisplays.calibrationKey) {
-                Toast.makeText(this, "无法读取固件状态，不能保存标定", Toast.LENGTH_LONG).show(); return
+            if (!CalibrationKey.saveable(key) || key != BattleDisplays.calibrationKey) {
+                Toast.makeText(this, "无法读取固件状态（display.master），不能保存标定", Toast.LENGTH_LONG).show(); return
             }
             val file = File(filesDir, "battle-display.json")
             val config = try { JSONObject(file.readText()) } catch (_: Exception) { JSONObject() }

@@ -151,20 +151,21 @@ object BattleDisplays {
         val generation = ++lifecycle
         executor = Executors.newSingleThreadScheduledExecutor().also { worker ->
             worker.scheduleWithFixedDelay({
-                val properties = try {
-                    val process = ProcessBuilder("/system/bin/getprop").start()
-                    val output = process.inputStream.bufferedReader().use { it.readText() }
-                    process.waitFor()
-                    fun property(name: String) = output.lineSequence()
-                        .firstOrNull { it.startsWith("[$name]: [") }?.substringAfter("]: [")?.removeSuffix("]")
-                    Pair(property("persist.vendor.display.master"), property("vendor.nl.screen_mode"))
-                } catch (_: Exception) { Pair(null, null) }
+                val master = readProperty("persist.vendor.display.master")
+                val mode = readProperty("vendor.nl.screen_mode")
                 val config = try { JSONObject(File(context.filesDir, "battle-display.json").readText()) }
                     catch (_: Exception) { null }
-                handler.post { if (generation == lifecycle) update(properties, config) }
+                handler.post { if (generation == lifecycle) update(Pair(master, mode), config) }
             }, 0, 100, TimeUnit.MILLISECONDS)
         }
     }
+
+    /** Read-only property probe; reflection avoids spawning /system/bin/getprop ten times a second. */
+    private fun readProperty(name: String): String? = try {
+        val value = Class.forName("android.os.SystemProperties")
+            .getMethod("get", String::class.java).invoke(null, name) as? String
+        value?.takeIf { it.isNotEmpty() }
+    } catch (_: Exception) { null }
 
     fun detach(host: BattleDisplayActivity) {
         if (hosts[host.battlePlayer] === host) { hosts.remove(host.battlePlayer); invalidate() }
@@ -183,12 +184,14 @@ object BattleDisplays {
         val host = hosts.values.firstOrNull() ?: return
         val dm = host.getSystemService(DisplayManager::class.java)
         val displays = dm.displays.sortedBy { it.displayId }
-        val key = "${properties.first}:${properties.second}:" + displays.joinToString(",") {
-            "${it.displayId}=${it.rotation}"
-        }
+        // Firmware builds differ: some expose vendor.nl.screen_mode, some do not. A missing shape is
+        // recorded as "?" so it still has its own calibration entry instead of blocking calibration.
+        val master = properties.first
+        val shapeKnown = CalibrationKey.shapeKnown(properties.second)
+        val key = CalibrationKey.of(master, properties.second, displays.map { it.displayId to it.rotation })
         calibrationKey = key
         (hosts[1] as? MainActivity)?.ensureWhiteScreen()
-        val profile = if (properties.first in listOf("0", "1") && properties.second in listOf("-1", "0", "1") &&
+        val profile = if (master in listOf("0", "1") &&
             config?.optString("fingerprint") == Build.FINGERPRINT) config?.optJSONObject("states")?.optJSONObject(key) else null
         val routes = try {
             val confirmed = requireNotNull(profile)
@@ -205,10 +208,11 @@ object BattleDisplays {
         val next = "$key|$profile|" + displays.joinToString { "${it.displayId}:${it.state}:${it.mode.physicalWidth}x${it.mode.physicalHeight}" }
         if (signature != next) {
             invalidate(); signature = next
-            android.util.Log.i("BattleDisplay", "version=$version key=$key profile=$profile")
+            android.util.Log.i("BattleDisplay", "version=$version key=$key shapeKnown=$shapeKnown profile=$profile")
         }
         if (routes == null) {
-            hosts.values.forEach { it.shield("等待双屏标定或恢复\n$key\n点击进入本屏标定") }
+            val hint = if (shapeKnown) "" else "\n固件未提供 vendor.nl.screen_mode，本状态按未知形态单独标定"
+            hosts.values.forEach { it.shield("等待双屏标定或恢复\n$key$hint\n点击进入本屏标定") }
             return
         }
         hosts.toMap().forEach { (player, activity) -> activity.bind(routes[player - 1], "$version:$next", version) }
