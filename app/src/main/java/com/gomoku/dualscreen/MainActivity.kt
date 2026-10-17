@@ -202,7 +202,7 @@ class MainActivity : BattleDisplayActivity() {
         val exitBtn = create3DButton("\uD83D\uDEAA\n\u9000\u51FA", "#C62828", "#8E0000", btnSize)
         exitBtn.setOnClickListener { if (game.isPaused && game.pausedByPlayer != myPlayer) { showMsgToPlayer(myPlayer, "\u6E38\u620F\u6682\u505C\u4E2D\uFF0C\u8BF7\u7B49\u5F85\u5BF9\u65B9\u6062\u590D"); return@setOnClickListener }; requestExit() }
         panel.addView(exitBtn, LinearLayout.LayoutParams(btnSize, btnSize).apply { bottomMargin = 12; rightMargin = btnMargin2 })
-        val verText = TextView(this).apply { text = "V4.6 · 校准"; setOnClickListener { startActivity(Intent(this@MainActivity, DisplayCalibrationActivity::class.java)) }; textSize = 10f; setTextColor(Color.parseColor("#998B7355")); gravity = Gravity.CENTER }
+        val verText = TextView(this).apply { text = "V4.6"; textSize = 10f; setTextColor(Color.parseColor("#998B7355")); gravity = Gravity.CENTER }
         panel.addView(verText, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         val settingsBtn = TextView(this).apply { text = "\u2261"; textSize = 22f; setTextColor(Color.parseColor("#998B7355")); gravity = Gravity.CENTER; setPadding(12, 0, 12, 4); setOnClickListener { if (game.isPaused && game.pausedByPlayer != myPlayer) { showMsgToPlayer(myPlayer, "\u6E38\u620F\u6682\u505C\u4E2D\uFF0C\u8BF7\u7B49\u5F85\u5BF9\u65B9\u6062\u590D"); return@setOnClickListener }; showSettingsDialog() } }
         panel.addView(settingsBtn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))

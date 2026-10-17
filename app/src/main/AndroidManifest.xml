@@ -17,9 +17,6 @@
         android:theme="@style/Theme.GomokuDualScreen"
         android:resizeableActivity="true">
 
-        <activity android:name=".DisplayCalibrationActivity" android:exported="false"
-            android:screenOrientation="unspecified" />
-
         <activity
             android:name=".MainActivity"
             android:exported="true"

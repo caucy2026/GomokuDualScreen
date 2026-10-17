@@ -154,7 +154,7 @@ class GamePresentation : BattleDisplayActivity() {
         undoBtn.setOnClickListener { onUndoRequest?.invoke() }
         panel.addView(startBtn, LinearLayout.LayoutParams(btnSize, btnSize).apply { bottomMargin = btnMargin; rightMargin = btnMargin2 })
         panel.addView(undoBtn, LinearLayout.LayoutParams(btnSize, btnSize).apply { bottomMargin = 8; rightMargin = btnMargin2 })
-        panel.addView(TextView(this).apply { text = "V4.6 · 校准"; setOnClickListener { startActivity(Intent(this@GamePresentation, DisplayCalibrationActivity::class.java)) }; textSize = 10f; setTextColor(Color.parseColor("#998B7355")); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+        panel.addView(TextView(this).apply { text = "V4.6"; textSize = 10f; setTextColor(Color.parseColor("#998B7355")); gravity = Gravity.CENTER }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
         val settingsBtn = TextView(this).apply { text = "\u2261"; textSize = 22f; setTextColor(Color.parseColor("#998B7355")); gravity = Gravity.CENTER; setPadding(12, 0, 12, 4); setOnClickListener { showSettingsDialog() } }
         panel.addView(settingsBtn, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))

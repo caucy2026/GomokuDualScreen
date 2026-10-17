@@ -4,19 +4,19 @@ import android.app.ActivityOptions
 import android.content.Intent
 import android.graphics.Color
 import android.hardware.display.DisplayManager
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.*
 import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
-import org.json.JSONObject
-import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-/** A calibrated output is a route to a physical panel, never a player inferred from display 0. */
+/**
+ * 一个玩家窗口只负责一个玩家，落到哪块屏由固件状态算出（PanelMap），不做现场标定。
+ * 方向交给系统：固件已按面板安装方向和交换状态补偿输出，应用再转一次就会倒置。
+ */
 abstract class BattleDisplayActivity : AppCompatActivity() {
     abstract val battlePlayer: Int
     private var cover: TextView? = null
@@ -47,6 +47,7 @@ abstract class BattleDisplayActivity : AppCompatActivity() {
         super.onStop()
     }
 
+    /** 中性遮罩：只在固件状态读不到或只剩一块屏时出现，出现期间双方都不能落子。 */
     fun shield(message: String) {
         val root = findViewById<FrameLayout>(android.R.id.content)
         if (cover?.parent == root && cover?.visibility == View.VISIBLE && cover?.text == message) return
@@ -54,10 +55,8 @@ abstract class BattleDisplayActivity : AppCompatActivity() {
             cover = TextView(this).apply {
                 gravity = Gravity.CENTER; textSize = 22f
                 setTextColor(Color.WHITE); setBackgroundColor(Color.rgb(35, 35, 35))
+                // 可点击只为吞掉触摸，避免遮罩期间点穿到棋盘。
                 isClickable = true
-                setOnClickListener {
-                    startActivity(Intent(this@BattleDisplayActivity, DisplayCalibrationActivity::class.java))
-                }
             }
             root.addView(cover, FrameLayout.LayoutParams(-1, -1))
         }
@@ -73,9 +72,8 @@ abstract class BattleDisplayActivity : AppCompatActivity() {
         if (this is GamePresentation) clearPreview()
     }
 
-    fun bind(route: JSONObject, token: String, version: Long) {
+    fun bind(target: Int, token: String, version: Long) {
         if (moving) return
-        val target = route.getInt("displayId")
         if (display?.displayId != target) {
             moving = true
             try {
@@ -94,8 +92,6 @@ abstract class BattleDisplayActivity : AppCompatActivity() {
         if (root.width == 0 || root.height == 0) return
         if (applied == token && lastSize == size) return
         applied = token; lastSize = size
-        // Only calibrated 0/180 corrections: Android View dispatch applies the inverse to touch.
-        root.rotation = route.getInt("rotation").toFloat()
         val observer = root.viewTreeObserver
         observer.registerFrameCommitCallback {
             if (!isFinishing && applied == token) BattleDisplays.frame(this, version)
@@ -107,7 +103,7 @@ abstract class BattleDisplayActivity : AppCompatActivity() {
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (!BattleDisplays.ready) {
-            // Only the full-window neutral calibration cover receives input while paused.
+            // 遮罩在等固件状态时只让它吞事件，不往棋盘里送。
             if (cover?.visibility == View.VISIBLE) return super.dispatchTouchEvent(event)
             return true
         }
@@ -119,11 +115,15 @@ abstract class BattleDisplayActivity : AppCompatActivity() {
     }
 }
 
-/** Shared transition barrier. Unknown profiles and either missing panel pause both players. */
+/**
+ * 双屏输出与过渡屏障。
+ *
+ * 玩家 → 屏 由 PanelMap 依固件状态算出，不再依赖标定文件；遮罩只用于三种真未知：
+ * 交换状态读不到、可用面板不足两块、两块屏算出同一个 displayId。
+ */
 object BattleDisplays {
     fun hasWindow(player: Int) = hosts.containsKey(player)
     fun configurationChanged() { invalidate() }
-    var calibrationKey = ""; private set
     var ready = false; private set
     var version = 0L; private set
     private val hosts = mutableMapOf<Int, BattleDisplayActivity>()
@@ -152,15 +152,13 @@ object BattleDisplays {
         executor = Executors.newSingleThreadScheduledExecutor().also { worker ->
             worker.scheduleWithFixedDelay({
                 val master = readProperty("persist.vendor.display.master")
-                val mode = readProperty("vendor.nl.screen_mode")
-                val config = try { JSONObject(File(context.filesDir, "battle-display.json").readText()) }
-                    catch (_: Exception) { null }
-                handler.post { if (generation == lifecycle) update(Pair(master, mode), config) }
+                val shape = readProperty("vendor.nl.screen_mode")
+                handler.post { if (generation == lifecycle) update(master, shape) }
             }, 0, 100, TimeUnit.MILLISECONDS)
         }
     }
 
-    /** Read-only property probe; reflection avoids spawning /system/bin/getprop ten times a second. */
+    /** 只读属性；反射读取避免每 100ms 拉起一个 getprop 进程。 */
     private fun readProperty(name: String): String? = try {
         val value = Class.forName("android.os.SystemProperties")
             .getMethod("get", String::class.java).invoke(null, name) as? String
@@ -177,45 +175,56 @@ object BattleDisplays {
 
     private fun invalidate() {
         ready = false; version++; frames.clear(); signature = ""
-        hosts.values.forEach { it.shield("等待双屏恢复 / 核验物理屏映射") }
+        hosts.values.forEach { it.shield("等待双屏就绪") }
     }
 
-    private fun update(properties: Pair<String?, String?>, config: JSONObject?) {
+    /** getType/getUniqueId 在部分 SDK 上是隐藏接口，用反射读取；读不到时按“无类型信息”处理。 */
+    private fun isVirtualDisplay(d: Display): Boolean {
+        val type = try {
+            Display::class.java.getMethod("getType").invoke(d) as Int
+        } catch (_: Exception) { -1 }
+        if (type == 5) return true   // Display.TYPE_VIRTUAL
+        val id = try {
+            Display::class.java.getMethod("getUniqueId").invoke(d) as? String
+        } catch (_: Exception) { null }
+        return id?.startsWith("virtual:") == true
+    }
+
+    private fun update(master: String?, shape: String?) {
         val host = hosts.values.firstOrNull() ?: return
         val dm = host.getSystemService(DisplayManager::class.java)
-        val displays = dm.displays.sortedBy { it.displayId }
-        // Firmware builds differ: some expose vendor.nl.screen_mode, some do not. A missing shape is
-        // recorded as "?" so it still has its own calibration entry instead of blocking calibration.
-        val master = properties.first
-        val shapeKnown = CalibrationKey.shapeKnown(properties.second)
-        val key = CalibrationKey.of(master, properties.second, displays.map { it.displayId to it.rotation })
-        calibrationKey = key
-        (hosts[1] as? MainActivity)?.ensureWhiteScreen()
-        val profile = if (master in listOf("0", "1") &&
-            config?.optString("fingerprint") == Build.FINGERPRINT) config?.optJSONObject("states")?.optJSONObject(key) else null
-        val routes = try {
-            val confirmed = requireNotNull(profile)
-            listOf(confirmed.getJSONObject("A"), confirmed.getJSONObject("B")).also { routes ->
-                require(routes[0].getInt("displayId") != routes[1].getInt("displayId"))
-                routes.forEach { route ->
-                    val d = dm.getDisplay(route.getInt("displayId"))
-                    require(d != null && d.isValid && d.state == Display.STATE_ON)
-                    require(route.getString("displayName") == d.name)
-                    require(route.getInt("rotation") in listOf(0, 180))
-                }
-            }
-        } catch (_: Exception) { null }
-        val next = "$key|$profile|" + displays.joinToString { "${it.displayId}:${it.state}:${it.mode.physicalWidth}x${it.mode.physicalHeight}" }
+        val panels = dm.displays
+            .filter { !isVirtualDisplay(it) && it.isValid && it.state != Display.STATE_OFF }
+            .sortedBy { it.displayId }
+        (hosts[GomokuGame.PLAYER_BLACK] as? MainActivity)?.ensureWhiteScreen()
+
+        val primary = panels.firstOrNull { it.displayId == Display.DEFAULT_DISPLAY }
+        val secondary = panels.firstOrNull { it.displayId != Display.DEFAULT_DISPLAY }
+        val routes = PanelMap.routes(primary?.displayId ?: -1, secondary?.displayId, master)
+
+        val next = "${master ?: "?"}|${shape ?: "?"}|" + panels.joinToString {
+            "${it.displayId}:${it.state}:${it.rotation}:${it.name}"
+        }
         if (signature != next) {
             invalidate(); signature = next
-            android.util.Log.i("BattleDisplay", "version=$version key=$key shapeKnown=$shapeKnown profile=$profile")
+            android.util.Log.i("BattleDisplay", "version=$version state=$next routes=$routes")
         }
         if (routes == null) {
-            val hint = if (shapeKnown) "" else "\n固件未提供 vendor.nl.screen_mode，本状态按未知形态单独标定"
-            hosts.values.forEach { it.shield("等待双屏标定或恢复\n$key$hint\n点击进入本屏标定") }
+            hosts.values.forEach { it.shield(blockedReason(panels, master)) }
             return
         }
-        hosts.toMap().forEach { (player, activity) -> activity.bind(routes[player - 1], "$version:$next", version) }
+        hosts.toMap().forEach { (player, activity) ->
+            val target = routes[player] ?: return@forEach
+            activity.bind(target, "$version:$next", version)
+        }
+    }
+
+    private fun blockedReason(panels: List<Display>, master: String?): String = when {
+        master !in listOf("0", "1") ->
+            "读不到屏幕交换状态 persist.vendor.display.master\n请确认固件与读取权限后重启应用"
+        panels.size < 2 ->
+            "等待双屏恢复\n当前可用面板 ${panels.size} 块"
+        else -> "双屏状态异常，等待恢复"
     }
 
     fun frame(host: BattleDisplayActivity, frameVersion: Long) {
