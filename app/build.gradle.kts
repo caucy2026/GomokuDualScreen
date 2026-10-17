@@ -1,7 +1,19 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+// 发布签名从本机 local.properties 读取（该文件不入库），不再把keystore路径和口令写进仓库。
+val localProps = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val releaseStore = localProps.getProperty("RELEASE_STORE_FILE")?.takeIf { it.isNotBlank() }
+val releaseStorePassword = localProps.getProperty("RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = localProps.getProperty("RELEASE_KEY_ALIAS")
+val releaseKeyPassword = localProps.getProperty("RELEASE_KEY_PASSWORD")
 
 android {
     namespace = "com.gomoku.dualscreen"
@@ -15,10 +27,22 @@ android {
         versionName = "4.6"
     }
 
+    signingConfigs {
+        if (releaseStore != null && releaseStorePassword != null && releaseKeyAlias != null) {
+            create("release") {
+                storeFile = file(releaseStore)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword ?: releaseStorePassword
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-
+            // 有本机签名配置时出可覆盖安装的正式包，否则退回未签名产物。
+            signingConfigs.findByName("release")?.let { signingConfig = it }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
