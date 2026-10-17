@@ -46,4 +46,9 @@ class PanelMapTest {
         assertEquals(5, routes?.get(GomokuGame.PLAYER_BLACK))
         assertEquals(0, routes?.get(GomokuGame.PLAYER_WHITE))
     }
+
+    @Test fun whiteViewIsTurnedAroundForTheOpposingPlayer() {
+        assertEquals(0f, PanelMap.contentRotation(GomokuGame.PLAYER_BLACK), 0f)
+        assertEquals(180f, PanelMap.contentRotation(GomokuGame.PLAYER_WHITE), 0f)
+    }
 }

@@ -27,4 +27,12 @@ object PanelMap {
             else -> null
         }
     }
+
+    /**
+     * 面对面各自观看：两名玩家坐在设备两侧，对面板 B 的人来说，面板 A 的“上”是反的。
+     * 系统在普通展开形态下只保证同一观看者看到正向，不会替对战应用把另一面转成对面视角，
+     * 所以白方内容需要在自身窗口内再转 180°；这一层由 View 的逆变换保证触摸仍然对应。
+     */
+    fun contentRotation(player: Int): Float =
+        if (player == GomokuGame.PLAYER_WHITE) 180f else 0f
 }

@@ -92,6 +92,10 @@ abstract class BattleDisplayActivity : AppCompatActivity() {
         if (root.width == 0 || root.height == 0) return
         if (applied == token && lastSize == size) return
         applied = token; lastSize = size
+        // 面对面：白方坐在对面板的那一侧，内容在自身窗口内转 180° 才是他那边的正向。
+        // ViewGroup 会把逆变换套到触摸上，所以落子坐标不需要另外换算。
+        val wanted = PanelMap.contentRotation(battlePlayer)
+        if (root.rotation != wanted) root.rotation = wanted
         val observer = root.viewTreeObserver
         observer.registerFrameCommitCallback {
             if (!isFinishing && applied == token) BattleDisplays.frame(this, version)
