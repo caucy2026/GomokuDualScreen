@@ -25,7 +25,8 @@ class MainActivity : BattleDisplayActivity() {
     override val battlePlayer = GomokuGame.PLAYER_BLACK
     fun cancelBattlePreview() { if (::gomokuView.isInitialized) gomokuView.clearPreview() }
 
-    private lateinit var game: GomokuGame
+    // 不缓存实例：会话被 GameState 替换（恢复/重建）后，黑白两侧必须仍指向同一份对局。
+    private val game: GomokuGame get() = GameState.game
     private lateinit var gomokuView: GomokuView
     private lateinit var statusText: TextView
     private lateinit var countdownText: TextView
@@ -60,7 +61,6 @@ class MainActivity : BattleDisplayActivity() {
 
         myPlayer = GomokuGame.PLAYER_BLACK
         GameState.restore(this)
-        game = GameState.game
         GameState.mainActivity = this
         requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
