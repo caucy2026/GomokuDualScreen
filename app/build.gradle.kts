@@ -23,8 +23,13 @@ android {
         applicationId = "com.gomoku.dualscreen"
         minSdk = 31
         targetSdk = 34
-        versionCode = 3
-        versionName = "4.6"
+        // 每次提测/上架都递增 versionCode，versionName 同步进版本历史。
+        versionCode = 4
+        versionName = "4.7"
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     signingConfigs {
